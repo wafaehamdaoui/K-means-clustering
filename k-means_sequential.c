@@ -30,31 +30,31 @@ void kmeans_sequential_execution()
     int i = 0, j = 0;
     double min_dist, current_dist;
 
-	// Cluster id associated with each point
+	//ID de cluster associé à chaque point
     int *point_to_cluster_id = (int *)malloc(number_of_points_global * sizeof(int));
 
 	// Cluster location or centroid (x,y,z) coordinates for K clusters in a iteration
     float *cluster_points_sum = (float *)malloc(K_global * 3 * sizeof(float));
 
-	// No. of points in a cluster for a iteration
+	// Nombre de points dans un cluster pour une itération
     int *points_inside_cluster_count = (int *)malloc(K_global * sizeof(int));
 
-	// Start of loop
+	// Début de boucle
     int iter_counter = 0;
     double temp_delta = 0.0;
     while ((delta_global > THRESHOLD) && (iter_counter < MAX_ITER)) //+1 is for the last assignment to cluster centroids (from previous iter)
     {
-		// Initialize cluster_points_sum or centroid to 0.0
+		// Initialiser cluster_points_sum ou centroïde à 0,0
         for (i = 0; i < K_global * 3; i++)
             cluster_points_sum[i] = 0.0;
 
-		// Initialize number of points for each cluster to 0
+		// Initialiser le nombre de points pour chaque cluster à 0
         for (i = 0; i < K_global; i++)
             points_inside_cluster_count[i] = 0;
 
         for (i = 0; i < number_of_points_global; i++)
         {
-            //Assign these points to their nearest cluster
+            //Affecter le reste des points à leur cluster le plus proche
             min_dist = DBL_MAX;
             for (j = 0; j < K_global; j++)
             {
@@ -68,16 +68,16 @@ void kmeans_sequential_execution()
                 }
             }
 
-             //Update local count of number of points inside cluster
+             //Mettre à jour le nombre local de points à l’intérieur du cluster
             points_inside_cluster_count[point_to_cluster_id[i]] += 1;
 
-			// Update local sum of cluster data points
+			// Mettre à jour la somme locale des points de données de cluster
             cluster_points_sum[point_to_cluster_id[i] * 3] += (float)data_points_global[i * 3];
             cluster_points_sum[point_to_cluster_id[i] * 3 + 1] += (float)data_points_global[i * 3 + 1];
             cluster_points_sum[point_to_cluster_id[i] * 3 + 2] += (float)data_points_global[i * 3 + 2];
         }
 
-        //Compute centroid from cluster_points_sum and store inside iter_centroids_global in a iteration
+        //Calculer le centroïde à partir de cluster_points_sum et stocker à l’intérieur iter_centroids_global dans une itération
         for (i = 0; i < K_global; i++)
         {
             assert(points_inside_cluster_count[i] != 0);
@@ -87,10 +87,10 @@ void kmeans_sequential_execution()
         }
 
 	/*
-    	Delta is the sum of squared distance between centroid of previous and current iteration.
-    	Supporting formula is:
+    	Delta est la somme de la distance au carré entre le centroïde de l’itération précédente et actuelle.
+    	La formule de soutien est la suivante :
         	delta = (iter1_centroid1_x - iter2_centroid1_x)^2 + (iter1_centroid1_y - iter2_centroid1_y)^2 + (iter1_centroid1_z - iter2_centroid1_z)^2 + (iter1_centroid2_x - iter2_centroid2_x)^2 + (iter1_centroid2_y - iter2_centroid2_y)^2 + (iter1_centroid2_z - iter2_centroid2_z)^2
-    	Update delta_global with new delta
+    	Mettre à jour delta_global avec le nouveau delta
 	*/
         temp_delta = 0.0;
         for (i = 0; i < K_global; i++)
@@ -102,13 +102,13 @@ void kmeans_sequential_execution()
         iter_counter++;
     }
 
-	// Store the number of iterations performed in global variable
+	// Stocker le nombre d’itérations effectuées dans la variable globale
     number_of_iterations_global = iter_counter;
 
-    // Assign points to final choice for cluster centroids
+    // Affecter des points au choix final pour les centroïdes de cluster
     for (i = 0; i < number_of_points_global; i++)
     {
-        // Assign points to clusters
+        // Affecter des points à des clusters
         data_point_cluster_global[i * 4] = data_points_global[i * 3];
         data_point_cluster_global[i * 4 + 1] = data_points_global[i * 3 + 1];
         data_point_cluster_global[i * 4 + 2] = data_points_global[i * 3 + 2];
@@ -126,23 +126,23 @@ void kmeans_sequential(int N,
 					)
 {
 
-    // Initialize global variables
+    // Initialiser les variables globales
     number_of_points_global = N;
     number_of_iterations_global = *num_iterations;
     K_global = K;
     data_points_global = data_points;
 
-	//Allocating space of 4 units each for N data points
+	//Allocation d’espace de 4 unités chacune pour N points de données
     *data_point_cluster_id = (int *)malloc(N * 4 * sizeof(int));
     data_point_cluster_global = *data_point_cluster_id;
 
     /*
-        Allocating space of 3K units for each iteration
-        Since three dimensional data point and K number of clusters 
+        Allocation d’espace d’unités 3K pour chaque itération
+        Puisque point de données tridimensionnel et K nombre de clusters 
     */
     iter_centroids_global = (float *)calloc((MAX_ITER + 1) * K * 3, sizeof(float));
 
-    // Assign first K points to be initial centroids
+    // Assigner les premiers points K aux centroïdes initiaux
     int i = 0;
     for (i = 0; i < K; i++)
     {
@@ -151,16 +151,16 @@ void kmeans_sequential(int N,
         iter_centroids_global[i * 3 + 2] = data_points[i * 3 + 2];
     }
 
-    // Print initial centroids
+    // afficher les centroïdes initiaux
     for (i = 0; i < K; i++)
     {
         printf("initial centroid #%d: %f,%f,%f\n", i + 1, iter_centroids_global[i * 3], iter_centroids_global[i * 3 + 1], iter_centroids_global[i * 3 + 2]);
     }
 
-    // Run k-means sequential function
+    // Exécuter la fonction séquentielle k-means
     kmeans_sequential_execution();
 
-    // Record number of iterations and store iter_centroids_global data into iter_centroids
+    // Enregistrer le nombre d’itérations et stocker les données iter_centroids_global dans iter_centroids
     *num_iterations = number_of_iterations_global;
     int centroids_size = (*num_iterations + 1) * K * 3;
     printf("number of iterations:%d\n", number_of_iterations_global);
@@ -170,7 +170,7 @@ void kmeans_sequential(int N,
         (*iter_centroids)[i] = iter_centroids_global[i];
     }
 
-    // Print final centroids
+    // afficher les centroïdes finaux
     for (i = 0; i < K; i++)
     {
         printf("centroid #%d: %f,%f,%f\n", i + 1, (*iter_centroids)[((*num_iterations) * K + i) * 3], (*iter_centroids)[((*num_iterations) * K + i) * 3 + 1], (*iter_centroids)[((*num_iterations) * K + i) * 3 + 2]);
@@ -226,12 +226,12 @@ int main()
 {
 
 	//---------------------------------------------------------------------
-	int N;					// Number of data points (input)
-	int K;					//Number of clusters to be formed (input)
-	int* data_points;		//Data points (input)
-	int* cluster_points;	//clustered data points (to be computed)
-	float* iter_centroids;		//centroids of each iteration (to be computed)
-	int number_of_iterations;     //no of iterations performed by algo (to be computed)
+	int N;					// Nombre de points de données (input)
+	int K;					// Nombre de clusters à former (input)
+	int* data_points;		//Points de données (input)
+	int* cluster_points;	//points de données en cluster
+	float* iter_centroids;		//centroïdes de chaque itération 
+	int number_of_iterations;     //nombre des itérations effectuées par algo 
 	//---------------------------------------------------------------------
 
 	double start_time, end_time;
@@ -293,8 +293,8 @@ int main()
 
 
 	/*
-        Function reads dataset_file and store data into data_points array. Each points have three consecutive indices associated into array.
-        data_points array looks like : [pt_1_x, pt_1_y, pt_1_z, pt_2_x, pt_2_y, pt_2_z]
+        La fonction lit dataset_file et stocke les données dans data_points tableau. Chaque point a trois indices consécutifs associés dans le tableau.
+        data_points tableau ressemble à : [pt_1_x, pt_1_y, pt_1_z, pt_2_x, pt_2_y, pt_2_z]
 	*/
 	dataset_in (dataset_filename, &N, &data_points);
 
@@ -302,7 +302,7 @@ int main()
 	kmeans_sequential(N, K, data_points, &cluster_points, &iter_centroids, &number_of_iterations);
 	end_time = omp_get_wtime();	
 
-	// Creating filenames for different dataset
+	// Création de noms de fichiers pour différents jeux de données
 
     char file_index_char[2];
     snprintf(file_index_char,10,"%d", x);
@@ -316,24 +316,24 @@ int main()
     strcat(centroid_filename,".txt");
 
 	/*
-        Clustered points are saved into cluster_filename.
-        Each point is associated with the cluster index it belongs to.
-        cluster_points array looks like : [pt_1_x, pt_1_y, pt_1_z, pt_1_cluster_index, pt_2_x, pt_2_y, pt_2_z, pt_2_cluster_index]
-        Output file format:
-            pt_1_x, pt_1_y, pt_1_z, pt_1_cluster_index
+        Les points groupés sont enregistrés dans cluster_filename.
+        Chaque point est associé à l’index de cluster auquel il appartient.
+        cluster_points tableau ressemble à : [pt_1_x, pt_1_y, pt_1_z, pt_1_cluster_index, pt_2_x, pt_2_y, pt_2_z, pt_2_cluster_index]
+        Format de fichier de sortie:
+            pt_1_x pt_1_y, pt_1_z, pt_1_cluster_index
 	*/
 	clusters_out (cluster_filename, N, cluster_points);
 
 	/*
-        Centroid points are stored into centroid_filename.
-        Each line in the file depicts the centroid coordinates of clusters after each iteration.
-        Output file format:
+        Les points centroïdes sont stockés dans centroid_filename.
+        Chaque ligne du fichier représente les coordonnées centroïdes des clusters après chaque itération.
+        Format de fichier de sortie:
             centroid_1_x, centroid_1_y, centroid_1_z, centroid_2_x, centroid_2_y, centroid_2_z
     */
 	centroids_out (centroid_filename, K, number_of_iterations, iter_centroids);
 
 	/*
-        Computation time is stored in 'compute_time_openmp.txt'.
+        Le temps de calcul est stocké dans 'compute_time_openmp.txt'.
     */
    	computation_time = end_time - start_time;
 	printf("Time Taken: %lf \n", computation_time);
