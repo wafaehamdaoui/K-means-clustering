@@ -10,7 +10,7 @@
 #define MAX_ITER 100
 #define THRESHOLD 1e-6
 
-// Global Variables used across different functions
+// Variables globales utilisées dans différentes fonctions
 int number_of_points_global;
 int number_of_threads_global;
 int number_of_iterations_global;
@@ -20,20 +20,20 @@ float *iter_centroids_global;
 int *data_point_cluster_global;
 int **iter_cluster_count_global;
 
-// Defined global delta
+// Delta global défini
 double delta_global = THRESHOLD + 1;
 
 void kmeans_openmp_thread(int *tid)
 {
     int *id = (int *)tid;
 
-    // Assigning data points range to each thread
+    // Affectation d’une plage de points de données à chaque thread
     int data_length_per_thread = number_of_points_global / number_of_threads_global;
     int start = (*id) * data_length_per_thread;
     int end = start + data_length_per_thread;
     if (end + data_length_per_thread > number_of_points_global)
     {
-        //To assign last undistributed points to this thread for computation, change end index to number_of_points_global
+        //Pour affecter les derniers points non distribués à ce thread à des fins de calcul, remplacez l’index de fin par number_of_points_global
         end = number_of_points_global;
         data_length_per_thread = number_of_points_global - start;
     }
@@ -43,30 +43,33 @@ void kmeans_openmp_thread(int *tid)
     int i = 0, j = 0;
     double min_dist, current_dist;
 
-    // Cluster id associated with each point
+    // ID de cluster associé à chaque point
     int *point_to_cluster_id = (int *)malloc(data_length_per_thread * sizeof(int));
 
-    // Cluster location or centroid (x,y,z) coordinates for K clusters in a iteration
+    // Coordonnées de l’emplacement du cluster ou du centroïde (x,y,z) pour K clusters dans une itération
     float *cluster_points_sum = (float *)malloc(K_global * 3 * sizeof(float));
 
-    // No. of points in a cluster for a iteration
+    // Nombre de points dans un cluster pour une itération
     int *points_inside_cluster_count = (int *)malloc(K_global * sizeof(int));
 
-    // Start of loop
+    // Début de boucle
     int iter_counter = 0;
     while ((delta_global > THRESHOLD) && (iter_counter < MAX_ITER))
     {
-        // Initialize cluster_points_sum or centroid to 0.0
-        for (i = 0; i < K_global * 3; i++)
-            cluster_points_sum[i] = 0.0;
+        // Initialiser cluster_points_sum ou centroïde à 0,0
+        #pragma omp parallel for
+              for (i = 0; i < K_global * 3; i++)
+                  cluster_points_sum[i] = 0.0;
 
-        // Initialize number of points for each cluster to 0
-        for (i = 0; i < K_global; i++)
-            points_inside_cluster_count[i] = 0;
+        // Initialiser le nombre de points pour chaque cluster à 0
+        #pragma omp parallel for
+             for (i = 0; i < K_global; i++)
+                 points_inside_cluster_count[i] = 0;
 
-        for (i = start; i < end; i++)
-        {
-            //Assign these points to their nearest cluster
+        #pragma omp parallel for
+            for (i = start; i < end; i++)
+           {
+            //Affecter le reste des points à leur cluster le plus proche
             min_dist = DBL_MAX;
             for (j = 0; j < K_global; j++)
             {
@@ -80,18 +83,18 @@ void kmeans_openmp_thread(int *tid)
                 }
             }
 
-            //Update local count of number of points inside cluster
+            //Mettre à jour le nombre local de points à l’intérieur du cluster
             points_inside_cluster_count[point_to_cluster_id[i - start]] += 1;
 
-            // Update local sum of cluster data points
+            // Mettre à jour la somme locale des points de données de cluster
             cluster_points_sum[point_to_cluster_id[i - start] * 3] += (float)data_points_global[i * 3];
             cluster_points_sum[point_to_cluster_id[i - start] * 3 + 1] += (float)data_points_global[i * 3 + 1];
             cluster_points_sum[point_to_cluster_id[i - start] * 3 + 2] += (float)data_points_global[i * 3 + 2];
         }
 
 /*
-    Update iter_centroids_global and iter_cluster_count_global after each thread arrival
-    Supporting formula is
+    Mettre à jour iter_centroids_global et iter_cluster_count_global après chaque arrivée de thread
+    La formule de soutien est
     (prev_iter_centroid_global * prev_iter_cluster_count + new_thread_cluster_points_sum) / (new_thread_cluster_count + prev_iter_cluster_count) 
 */
 #pragma omp critical
@@ -112,11 +115,10 @@ void kmeans_openmp_thread(int *tid)
         }
 
 /*
-    Wait for all threads to arrive and execute for first thread only
-    Delta is the sum of squared distance between centroid of previous and current iteration.
-    Supporting formula is:
-        delta = (iter1_centroid1_x - iter2_centroid1_x)^2 + (iter1_centroid1_y - iter2_centroid1_y)^2 + (iter1_centroid1_z - iter2_centroid1_z)^2 + (iter1_centroid2_x - iter2_centroid2_x)^2 + (iter1_centroid2_y - iter2_centroid2_y)^2 + (iter1_centroid2_z - iter2_centroid2_z)^2
-    Update delta_global with new delta
+    Attendez que tous les threads arrivent et exécutez-les pour le premier thread uniquement
+    Delta est la somme de la distance au carré entre le centroïde de l’itération précédente et actuelle.
+   
+Mettre à jour delta_global avec le nouveau delta
 */
 #pragma omp barrier
         if (*id == 0)
@@ -130,16 +132,16 @@ void kmeans_openmp_thread(int *tid)
             number_of_iterations_global++;
         }
 
-// Wait for all thread to arrive and update the iter_counter by +1
+// Attendez que tous les fils arrivent et mettez à jour le iter_counter par +1
 #pragma omp barrier
         iter_counter++;
     }
-//End of loop
+//Fin de boucle
 
-// Assign points to final choice for cluster centroids
+// Affecter des points au choix final pour les centroïdes de cluster
     for (i = start; i < end; i++)
     {
-        // Assign points to clusters
+        // Affecter des points à des clusters
         data_point_cluster_global[i * 4] = data_points_global[i * 3];
         data_point_cluster_global[i * 4 + 1] = data_points_global[i * 3 + 1];
         data_point_cluster_global[i * 4 + 2] = data_points_global[i * 3 + 2];
@@ -158,48 +160,51 @@ void kmeans_omp(int num_threads,
 {
 
 
-    // Initialize global variables
+    // Initialiser les variables globales
     number_of_points_global = N;
     number_of_threads_global = num_threads;
     number_of_iterations_global = 0;
     K_global = K;
     data_points_global = data_points;
 
-    *data_points_cluster_id = (int *)malloc(N * 4 * sizeof(int));   //Allocating space of 4 units each for N data points
+    *data_points_cluster_id = (int *)malloc(N * 4 * sizeof(int));   //Allocation d’espace de 4 unités chacune pour N points de données
     data_point_cluster_global = *data_points_cluster_id;
 
     /*
-        Allocating space of 3K units for each iteration
-        Since three dimensional data point and K number of clusters 
+        Allocation d’espace d’unités 3K pour chaque itération
+        Puisque point de données tridimensionnel et K nombre de clusters 
     */
     iter_centroids_global = (float *)calloc((MAX_ITER + 1) * K * 3, sizeof(float));
 
-    // Assigning first K points to be initial centroids
+    // Affectation des premiers points K aux centroïdes initiaux
     int i = 0;
-    for (i = 0; i < K; i++)
-    {
+    #pragma omp parallel for
+        for (i = 0; i < K; i++)
+       {
         iter_centroids_global[i * 3] = data_points[i * 3];
         iter_centroids_global[i * 3 + 1] = data_points[i * 3 + 1];
         iter_centroids_global[i * 3 + 2] = data_points[i * 3 + 2];
-    }
+       }
 
-    // Print initial centroids
-    for (i = 0; i < K; i++)
-    {
-        printf("initial centroid #%d: %f,%f,%f\n", i + 1, iter_centroids_global[i * 3], iter_centroids_global[i * 3 + 1], iter_centroids_global[i * 3 + 2]);
-    }
+    // afficher les centroïdes initiaux
+    #pragma omp parallel for
+        for (i = 0; i < K; i++)
+        {
+          printf("initial centroid #%d: %f,%f,%f\n", i + 1, iter_centroids_global[i * 3], iter_centroids_global[i * 3 + 1], iter_centroids_global[i * 3 + 2]);
+        }
 
     /*
-        Allocating space for iter_cluster_count_global
-        iter_cluster_count_global keeps the count of number of points in K clusters after each iteration
+        Allocation d’espace pour iter_cluster_count_global
+        iter_cluster_count_global conserve le nombre de points dans K clusters après chaque itération
      */
     iter_cluster_count_global = (int **)malloc(MAX_ITER * sizeof(int *));
-    for (i = 0; i < MAX_ITER; i++)
-    {
-        iter_cluster_count_global[i] = (int *)calloc(K, sizeof(int));
-    }
+    #pragma omp parallel for
+        for (i = 0; i < MAX_ITER; i++)
+       {
+            iter_cluster_count_global[i] = (int *)calloc(K, sizeof(int));
+       }
 
-    // Creating threads
+    // Création de threads
     omp_set_num_threads(num_threads);
 
 #pragma omp parallel
@@ -209,19 +214,21 @@ void kmeans_omp(int num_threads,
         kmeans_openmp_thread(&ID);
     }
 
-    // Record number_of_iterations
+    // Number_of_iterations d’enregistrement
     *number_of_iterations = number_of_iterations_global;
 
-    // Record number of iterations and store iter_centroids_global data into iter_centroids
+    // Enregistrer le nombre d’itérations et stocker les données iter_centroids_global dans iter_centroids
     int iter_centroids_size = (*number_of_iterations + 1) * K * 3;
     printf("Number of iterations :%d\n", *number_of_iterations);
     *iter_centroids = (float *)calloc(iter_centroids_size, sizeof(float));
+    #pragma omp parallel for
     for (i = 0; i < iter_centroids_size; i++)
     {
         (*iter_centroids)[i] = iter_centroids_global[i];
     }
 
-    // Print final centroids after last iteration
+    // afficher les centroïdes finaux après la dernière itération
+    #pragma omp parallel for
     for (i = 0; i < K; i++)
     {
         printf("centroid #%d: %f,%f,%f\n", i + 1, (*iter_centroids)[((*number_of_iterations) * K + i) * 3], (*iter_centroids)[((*number_of_iterations) * K + i) * 3 + 1], (*iter_centroids)[((*number_of_iterations) * K + i) * 3 + 2]);
@@ -235,6 +242,7 @@ void dataset_in(const char *dataset_filename, int *N, int **data_points)
 	fscanf(fin, "%d", N);
 	*data_points = (int *)malloc(sizeof(int) * ((*N) * 3));
     int i = 0;
+    #pragma omp parallel for
 	for (i = 0; i < (*N) * 3; i++)
 	{
 		fscanf(fin, "%d", (*data_points + i));
@@ -246,6 +254,7 @@ void clusters_out(const char *cluster_filename, int N, int *cluster_points)
 {
 	FILE *fout = fopen(cluster_filename, "w");
     int i = 0;
+    #pragma omp parallel for
 	for (i = 0; i < N; i++)
 	{
 		fprintf(fout, "%d %d %d %d\n",
@@ -259,6 +268,7 @@ void centroids_out(const char *centroid_filename, int K, int number_of_iteration
 {
 	FILE *fout = fopen(centroid_filename, "w");
     int i = 0;
+    #pragma omp parallel for
 	for (i = 0; i < number_of_iterations + 1; i++)
 	{
         int j = 0;
@@ -278,13 +288,13 @@ void main()
 {
 
 	//---------------------------------------------------------------------
-	int N;					//no. of data points (input)
-	int K;					//no. of clusters to be formed (input)
-	int num_threads;		//no. of threads to be used (input)
-	int* data_points;		//data points (input)
-	int* cluster_points;	//clustered data points (to be computed)
-	float* iter_centroids;			//centroids of each iteration (to be computed)
-	int number_of_iterations;    //no of iterations performed by algo (to be computed)
+	int N;				    	//Nombre de points de données (input)
+	int K;				    	// Nombre de clusters à former (input)
+	int num_threads;	    	// Nombre de threads à utiliser (input)
+	int* data_points;	    	//Points de données (input)
+	int* cluster_points;    	//points de données en cluster 
+	float* iter_centroids;  	//centroïdes de chaque itération
+	int number_of_iterations;   //nombre des itérations effectuées par algo
 	//---------------------------------------------------------------------
 
     char *dataset_filename = "dataset-10000.txt";
@@ -348,23 +358,23 @@ void main()
 	double computation_time;
 
 	/*
-        Function reads dataset_file and store data into data_points array. Each points have three consecutive indices associated into array.
-        data_points array looks like : [pt_1_x, pt_1_y, pt_1_z, pt_2_x, pt_2_y, pt_2_z]
+        La fonction lit dataset_file et stocke les données dans data_points tableau. Chaque point a trois indices consécutifs associés dans le tableau.
+        data_points tableau ressemble à : [pt_1_x, pt_1_y, pt_1_z, pt_2_x, pt_2_y, pt_2_z]
 	*/
 
 	dataset_in (dataset_filename, &N, &data_points);
 
     /*
-        For one iteration and two clusters,
-        iter_centroids array looks like : [iter_1_cluster_1_x, iter_1_cluster_1_y, iter_1_cluster_1_z, iter_1_cluster_2_x, iter_1_cluster_2_y, iter_1_cluster_2_z, iter_2_cluster_1_x, ...]
-        Similarly the array extends further with more iterations
+        Pour une itération et deux clusters,
+        iter_centroids tableau ressemble à : [iter_1_cluster_1_x, iter_1_cluster_1_y, iter_1_cluster_1_z, iter_1_cluster_2_x, iter_1_cluster_2_y, iter_1_cluster_2_z, iter_2_cluster_1_x, ...]
+        De même, le tableau s’étend davantage avec plus d’itérations
     */
 
 	start_time = omp_get_wtime();
 	kmeans_omp(num_threads, N, K, data_points, &cluster_points, &iter_centroids, &number_of_iterations);
 	end_time = omp_get_wtime();
 
-    // Creating filenames for different threads and different dataset
+    // Création de noms de fichiers pour différents threads et différents jeux de données
     char num_threads_char[3];
     snprintf(num_threads_char,10,"%d", num_threads);
 
@@ -384,24 +394,24 @@ void main()
     strcat(centroid_filename,".txt");
 
 	/*
-        Clustered points are saved into cluster_filename.
-        Each point is associated with the cluster index it belongs to.
-        cluster_points array looks like : [pt_1_x, pt_1_y, pt_1_z, pt_1_cluster_index, pt_2_x, pt_2_y, pt_2_z, pt_2_cluster_index]
-        Output file format:
-            pt_1_x, pt_1_y, pt_1_z, pt_1_cluster_index
+        Les points groupés sont enregistrés dans cluster_filename.
+        Chaque point est associé à l’index de cluster auquel il appartient.
+        cluster_points tableau ressemble à : [pt_1_x, pt_1_y, pt_1_z, pt_1_cluster_index, pt_2_x, pt_2_y, pt_2_z, pt_2_cluster_index]
+        Format de fichier de sortie:
+            pt_1_x pt_1_y, pt_1_z, pt_1_cluster_index
 	*/
 	clusters_out (cluster_filename, N, cluster_points);
 
     /*
-        Centroid points are stored into centroid_filename.
-        Each line in the file depicts the centroid coordinates of clusters after each iteration.
-        Output file format:
+        Les points centroïdes sont stockés dans centroid_filename.
+        Chaque ligne du fichier représente les coordonnées centroïdes des clusters après chaque itération.
+        Format de fichier de sortie:
             centroid_1_x, centroid_1_y, centroid_1_z, centroid_2_x, centroid_2_y, centroid_2_z
     */
 	centroids_out (centroid_filename, K, number_of_iterations, iter_centroids);
 
     /*
-        Computation time is stored in 'compute_time_openmp.txt'.
+        Le temps de calcul est stocké dans 'compute_time_openmp.txt'.
     */
    	computation_time = end_time - start_time;
 	printf("Time Taken: %lf \n", computation_time);
