@@ -33,7 +33,7 @@ void kmeans_sequential_execution()
 	//ID de cluster associé à chaque point
     int *point_to_cluster_id = (int *)malloc(number_of_points_global * sizeof(int));
 
-	// Cluster location or centroid (x,y,z) coordinates for K clusters in a iteration
+	// Coordonnées de l’emplacement du cluster ou du centroïde (x,y,z) pour K clusters dans une itération
     float *cluster_points_sum = (float *)malloc(K_global * 3 * sizeof(float));
 
 	// Nombre de points dans un cluster pour une itération
